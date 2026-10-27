@@ -144,14 +144,18 @@ public class PetRepository : IPetRepository
 
     public void DeletePet(int id)
     {
+       
         try
         {
             var entity = _context.Mascotas.FirstOrDefault(m => m.Id == id)
                 ?? throw new InvalidOperationException("La mascota no existe.");
 
+            if (_context.Citas.AsNoTracking().Any(c => c.MascotaId == id))
+                throw new InvalidOperationException("No se puede eliminar: la mascota tiene citas registradas.");
+
             if (_context.Adopciones.AsNoTracking().Any(a => a.MascotaId == id))
                 throw new InvalidOperationException("No se puede eliminar: la mascota tiene una adopción registrada.");
-
+           
             _context.Mascotas.Remove(entity);
             _context.SaveChanges();
         }
