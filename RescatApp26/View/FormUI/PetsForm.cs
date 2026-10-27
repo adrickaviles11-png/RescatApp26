@@ -31,15 +31,15 @@ public class PetsForm : Form, IPetView
         UiBuilder.AddTitle(this, "Mascotas rescatadas", 15, 10);
 
         _grid = UiBuilder.AddGrid(this, 15, 55, 740, 230);
-        UiBuilder.AddColumn(_grid, "Id", "ID", 40);
-        UiBuilder.AddColumn(_grid, "Name", "Nombre", 120);
-        UiBuilder.AddColumn(_grid, "Species", "Especie", 70);
-        UiBuilder.AddColumn(_grid, "Breed", "Raza", 95);
-        UiBuilder.AddColumn(_grid, "AgeMonths", "Edad", 55);
+        UiBuilder.AddColumn(_grid, "Id", "ID", 45);
+        UiBuilder.AddColumn(_grid, "Name", "Nombre", 110);
+        UiBuilder.AddColumn(_grid, "Species", "Especie", 80);
+        UiBuilder.AddColumn(_grid, "Breed", "Raza", 100);
+        UiBuilder.AddColumn(_grid, "AgeMonths", "Edad (meses)", 90);
         UiBuilder.AddColumn(_grid, "SexText", "Sexo", 65);
         UiBuilder.AddColumn(_grid, "SizeText", "Tamaño", 75);
         UiBuilder.AddColumn(_grid, "StatusText", "Estado", 85);
-        UiBuilder.AddColumn(_grid, "EntryDate", "Ingreso", 95, "dd/MM/yyyy");
+        UiBuilder.AddColumn(_grid, "EntryDate", "Ingreso", 85, "dd/MM/yyyy");
         _grid.CellClick += (s, e) =>
         {
             if (e.RowIndex >= 0 && _grid.Rows[e.RowIndex].DataBoundItem is PetDto pet)
@@ -52,7 +52,7 @@ public class PetsForm : Form, IPetView
         _txtName = UiBuilder.AddTextBox(this, 120, y1, 200);
         _txtName.MaxLength = 100;
         UiBuilder.AddLabel(this, "Especie", 350, y1);
-        _cboSpecies = new ComboBox { Left = 460, Top = y1, Width = 200, DropDownStyle = ComboBoxStyle.DropDown, MaxLength = 50 };
+        _cboSpecies = new ComboBox { Left = 440, Top = y1, Width = 200, DropDownStyle = ComboBoxStyle.DropDown, MaxLength = 50 };
         _cboSpecies.Items.AddRange(new object[] { "Perro", "Gato" });
         Controls.Add(_cboSpecies);
 
@@ -60,13 +60,13 @@ public class PetsForm : Form, IPetView
         _txtBreed = UiBuilder.AddTextBox(this, 120, y2, 200);
         _txtBreed.MaxLength = 50;
         UiBuilder.AddLabel(this, "Edad (meses)", 350, y2);
-        _nudAgeMonths = new NumericUpDown { Left = 460, Top = y2, Width = 80, Minimum = 0, Maximum = 360 };
+        _nudAgeMonths = new NumericUpDown { Left = 440, Top = y2, Width = 80, Minimum = 0, Maximum = 600 };
         Controls.Add(_nudAgeMonths);
 
         UiBuilder.AddLabel(this, "Sexo", 15, y3);
         _cboSex = UiBuilder.AddOptionCombo(this, 120, y3, 200, PetOptions.Sexes);
         UiBuilder.AddLabel(this, "Tamaño", 350, y3);
-        _cboSize = UiBuilder.AddOptionCombo(this, 460, y3, 200, PetOptions.Sizes);
+        _cboSize = UiBuilder.AddOptionCombo(this, 440, y3, 200, PetOptions.Sizes);
 
         UiBuilder.AddLabel(this, "Estado", 15, y4);
         _cboStatus = UiBuilder.AddOptionCombo(this, 120, y4, 200, PetOptions.Statuses);

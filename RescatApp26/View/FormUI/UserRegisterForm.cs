@@ -27,14 +27,17 @@ public class UserRegisterForm : Form, IUserRegisterView
         UiBuilder.AddLabel(this, "Complete los datos para crear su cuenta.", 30, 58);
 
         int y = 100;
-        _txtUserName = UiBuilder.AddTextBox(this, 30, y, 410, placeholder: "Usuario");
-        y += 45;
-        _txtPassword = UiBuilder.AddTextBox(this, 30, y, 410, password: true, placeholder: "Contraseña");
-        y += 45;
-        _txtConfirm = UiBuilder.AddTextBox(this, 30, y, 410, password: true, placeholder: "Confirmar contraseña");
+        UiBuilder.AddLabel(this, "Usuario", 30, y);
+        _txtUserName = UiBuilder.AddTextBox(this, 200, y, 240);
+        y += 42;
+        UiBuilder.AddLabel(this, "Contraseña", 30, y);
+        _txtPassword = UiBuilder.AddTextBox(this, 200, y, 240, password: true);
+        y += 42;
+        UiBuilder.AddLabel(this, "Confirmar contraseña", 30, y);
+        _txtConfirm = UiBuilder.AddTextBox(this, 200, y, 240, password: true);
         y += 60;
 
-        var btnRegister = UiBuilder.AddButton(this, "Registrar", 205, y, 115);
+        var btnRegister = UiBuilder.AddButton(this, "Registrar", 200, y, 115);
         btnRegister.Click += (s, e) => _presenter.Register();
         var btnClose = UiBuilder.AddButton(this, "Cerrar", 325, y, 115, danger: true);
         btnClose.Click += (s, e) => Close();

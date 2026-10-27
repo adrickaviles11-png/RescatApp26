@@ -10,8 +10,6 @@ public class RescatAppDbContext : DbContext
     public DbSet<Mascota> Mascotas => Set<Mascota>();
     public DbSet<Adoptante> Adoptantes => Set<Adoptante>();
     public DbSet<Adopcion> Adopciones => Set<Adopcion>();
-    public DbSet<Veterinaria> Veterinarias => Set<Veterinaria>();
-    public DbSet<Cita> Citas => Set<Cita>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -65,36 +63,11 @@ public class RescatAppDbContext : DbContext
         {
             e.ToTable("Adopciones");
             e.HasKey(x => x.Id);
-            e.Property(x => x.CodigoAdopcion)
-            .HasDefaultValueSql("NEXT VALUE FOR dbo.SeqCodigoAdopcion")
-            .ValueGeneratedOnAdd();
             e.Property(x => x.Observaciones).HasMaxLength(500);
             e.Property(x => x.FechaAdopcion).HasColumnType("datetime");
             e.Property(x => x.CostoAdopcion).HasColumnType("decimal(18,2)");
             e.HasOne(x => x.Mascota).WithMany(m => m.Adopciones).HasForeignKey(x => x.MascotaId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Adoptante).WithMany(a => a.Adopciones).HasForeignKey(x => x.AdoptanteId).OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<Veterinaria>(e =>
-        {
-            e.ToTable("Veterinarias");
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Nombre).HasMaxLength(100);
-            e.Property(x => x.Telefono).HasMaxLength(30);
-            e.Property(x => x.Direccion).HasMaxLength(200);
-        });
-
-        modelBuilder.Entity<Cita>(e =>
-        {
-            e.ToTable("Citas");
-            e.HasKey(x => x.Id);
-            e.Property(x => x.Motivo).HasMaxLength(200);
-            e.Property(x => x.Observaciones).HasMaxLength(500);
-            e.Property(x => x.FechaHora).HasColumnType("datetime");
-            e.Property(x => x.FechaRegistro).HasColumnType("datetime");
-            e.HasOne(x => x.Mascota).WithMany().HasForeignKey(x => x.MascotaId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Veterinaria).WithMany().HasForeignKey(x => x.VeterinariaId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.Adoptante).WithMany().HasForeignKey(x => x.AdoptanteId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

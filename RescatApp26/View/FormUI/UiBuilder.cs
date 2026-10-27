@@ -6,48 +6,9 @@ namespace RescatApp26.View.FormUI;
 /// <summary>Ayudas para construir los formularios por código (sin diseñador).</summary>
 internal static class UiBuilder
 {
-    public static readonly Color Primary = Color.FromArgb(31, 75, 116);     // azul oscuro del contorno
-    public static readonly Color Accent = Color.FromArgb(41, 112, 173);     // azul del gato
-    public static readonly Color Highlight = Color.FromArgb(248, 208, 83);  // amarillo del perro
-    public static readonly Color Cream = Color.FromArgb(242, 235, 211);     // crema del centro
+    public static readonly Color Primary = Color.FromArgb(38, 70, 83);
+    public static readonly Color Accent = Color.FromArgb(42, 157, 143);
     public static readonly Color Danger = Color.FromArgb(193, 18, 31);
-
-    private static Image? _logo;
-
-    public static Image? Logo
-    {
-        get
-        {
-            if (_logo is null)
-            {
-                string path = Path.Combine(AppContext.BaseDirectory, "Assets", "logo.png");
-                if (File.Exists(path)) _logo = Image.FromFile(path);
-            }
-            return _logo;
-        }
-    }
-
-    public static PictureBox AddLogo(Control parent, int x, int y, int size)
-    {
-        var picture = new PictureBox
-        {
-            Left = x,
-            Top = y,
-            Width = size,
-            Height = size,
-            SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = Color.Transparent,
-            Image = Logo
-        };
-        parent.Controls.Add(picture);
-        return picture;
-    }
-
-    public static void ApplyIcon(Form form)
-    {
-        string path = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
-        if (File.Exists(path)) form.Icon = new Icon(path);
-    }
 
     public static Label AddLabel(Control parent, string text, int x, int y)
     {
@@ -71,10 +32,9 @@ internal static class UiBuilder
         return label;
     }
 
-    public static TextBox AddTextBox(Control parent, int x, int y, int width = 220, bool password = false, string? placeholder = null)
+    public static TextBox AddTextBox(Control parent, int x, int y, int width = 220, bool password = false)
     {
         var textBox = new TextBox { Left = x, Top = y, Width = width, UseSystemPasswordChar = password };
-        if (placeholder is not null) textBox.PlaceholderText = placeholder;
         parent.Controls.Add(textBox);
         return textBox;
     }
@@ -136,7 +96,6 @@ internal static class UiBuilder
             MultiSelect = false,
             RowHeadersVisible = false,
             SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             BackgroundColor = Color.White,
             BorderStyle = BorderStyle.FixedSingle,
             Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
@@ -144,8 +103,6 @@ internal static class UiBuilder
         grid.ColumnHeadersDefaultCellStyle.BackColor = Primary;
         grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
         grid.EnableHeadersVisualStyles = false;
-        grid.DefaultCellStyle.SelectionBackColor = Highlight;
-        grid.DefaultCellStyle.SelectionForeColor = Primary;
         parent.Controls.Add(grid);
         return grid;
     }
@@ -157,13 +114,10 @@ internal static class UiBuilder
             Name = property,
             DataPropertyName = property,
             HeaderText = header,
-            Width = width,
-            FillWeight = width
+            Width = width
         };
         if (format is not null) column.DefaultCellStyle.Format = format;
         grid.Columns.Add(column);
-
-
     }
 
     public static void Info(string message) =>
