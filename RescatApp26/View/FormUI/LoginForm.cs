@@ -21,20 +21,23 @@ public class LoginForm : Form, IAuthenticationView
         _presenter = new AuthenticationPresenter(this, service);
 
         Text = "RescatApp - Iniciar sesión";
-        ClientSize = new Size(380, 380);
+        ClientSize = new Size(380, 490);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.White;
+        BackColor = UiBuilder.Cream;
+        UiBuilder.ApplyIcon(this);
+
+        UiBuilder.AddLogo(this, 135, 20, 110);
 
         var title = new Label
         {
             Text = "RescatApp",
             Left = 0,
-            Top = 25,
+            Top = 135,
             Width = 380,
-            Height = 45,
+            Height = 40,
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font("Segoe UI", 22F, FontStyle.Bold),
             ForeColor = UiBuilder.Primary
@@ -43,24 +46,22 @@ public class LoginForm : Form, IAuthenticationView
         {
             Text = "Rescate y adopción de mascotas",
             Left = 0,
-            Top = 72,
+            Top = 178,
             Width = 380,
-            Height = 24,
+            Height = 22,
             TextAlign = ContentAlignment.MiddleCenter,
-            ForeColor = Color.Gray
+            ForeColor = UiBuilder.Primary
         };
         Controls.Add(title);
         Controls.Add(subtitle);
 
-        UiBuilder.AddLabel(this, "Usuario", 40, 115);
-        _txtUser = UiBuilder.AddTextBox(this, 40, 140, 300);
-        UiBuilder.AddLabel(this, "Contraseña", 40, 180);
-        _txtPassword = UiBuilder.AddTextBox(this, 40, 205, 300, password: true);
+        _txtUser = UiBuilder.AddTextBox(this, 40, 245, 300, placeholder: "Usuario");
+        _txtPassword = UiBuilder.AddTextBox(this, 40, 295, 300, password: true, placeholder: "Contraseña");
 
-        _lblError = new Label { Left = 40, Top = 240, Width = 300, Height = 36, ForeColor = UiBuilder.Danger };
+        _lblError = new Label { Left = 40, Top = 345, Width = 300, Height = 36, ForeColor = UiBuilder.Danger };
         Controls.Add(_lblError);
 
-        var btnLogin = UiBuilder.AddButton(this, "Iniciar sesión", 40, 285, 300);
+        var btnLogin = UiBuilder.AddButton(this, "Iniciar sesión", 40, 390, 300);
         btnLogin.Height = 40;
         btnLogin.Click += (s, e) =>
         {
@@ -73,11 +74,12 @@ public class LoginForm : Form, IAuthenticationView
         {
             Text = "¿No tiene cuenta? Crear cuenta nueva",
             Left = 40,
-            Top = 335,
+            Top = 440,
             Width = 300,
             Height = 30,
             FlatStyle = FlatStyle.Flat,
             ForeColor = UiBuilder.Primary,
+            BackColor = UiBuilder.Cream,
             Cursor = Cursors.Hand
         };
         btnRegister.FlatAppearance.BorderSize = 0;
