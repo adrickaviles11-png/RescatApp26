@@ -7,7 +7,7 @@ using RescatApp26.Services.Repository;
 
 namespace RescatApp26.Services;
 
-/// <summary>Vacía la cola FIFO hacia SQL Server cada 5 segundos, mientras haya conexión.</summary>
+/// <summary>Vacía la cola FIFO hacia SQL Server: apenas vuelve la conexión, y cada 5 segundos como respaldo.</summary>
 public class SyncService : IDisposable
 {
     private const int MaxAttempts = 3;
@@ -15,6 +15,10 @@ public class SyncService : IDisposable
     private readonly ISyncQueue _queue;
     private readonly IConnectivityService _connectivity;
     private readonly CancellationTokenSource _cts = new();
+    private readonly SemaphoreSlim _gate = new(1, 1);   // evita dos envíos al mismo tiempo (duplicados)
+
+    /// <summary>Se dispara cada vez que un elemento sale de la cola o falla.</summary>
+    public event EventHandler? QueueChanged;
 
     public SyncService(ISyncQueue queue, IConnectivityService connectivity)
     {
@@ -22,7 +26,15 @@ public class SyncService : IDisposable
         _connectivity = connectivity ?? throw new ArgumentNullException(nameof(connectivity));
     }
 
-    public void Start() => _ = Task.Run(() => RunAsync(_cts.Token));
+    public void Start()
+    {
+        // Apenas vuelve la conexión se envía lo pendiente, sin esperar al siguiente ciclo.
+        _connectivity.StatusChanged += (s, online) =>
+        {
+            if (online) _ = Task.Run(() => ProcessQueueAsync(_cts.Token));
+        };
+        _ = Task.Run(() => RunAsync(_cts.Token));
+    }
 
     private async Task RunAsync(CancellationToken ct)
     {
@@ -40,28 +52,43 @@ public class SyncService : IDisposable
 
     public async Task<int> ProcessQueueAsync(CancellationToken ct = default)
     {
+        if (!await _gate.WaitAsync(0, ct)) return 0;   // ya hay un envío en curso
+
         int sent = 0;
-        if (!await Task.Run(() => _connectivity.IsOnline(), ct)) return 0;
-
-        while (!ct.IsCancellationRequested)
+        try
         {
-            var item = _queue.PeekNext();   // FIFO: siempre el más antiguo pendiente
-            if (item is null) break;
+            if (!_connectivity.IsOnline) return 0;
 
-            try
+            while (!ct.IsCancellationRequested)
             {
-                await Task.Run(() => Send(item), ct);
-                _queue.MarkAsSent(item.Id);
-                sent++;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Si el fallo fue por pérdida de conexión, no cuenta como intento fallido.
-                if (!_connectivity.IsOnline()) break;
+                var item = _queue.PeekNext();   // FIFO: siempre el más antiguo pendiente
+                if (item is null) break;
 
-                _queue.MarkAsFailed(item.Id, ex.Message, MaxAttempts);
-                break;   // se detiene para respetar el orden; reintenta en el siguiente ciclo
+                try
+                {
+                    await Task.Run(() => Send(item), ct);
+                    _queue.MarkAsSent(item.Id);
+                    sent++;
+                    QueueChanged?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Si se cayó la conexión, el elemento no se penaliza: se reintenta al volver.
+                    if (!_connectivity.CheckNow()) break;
+
+                    _queue.MarkAsFailed(item.Id, ex.InnerException?.Message ?? ex.Message, MaxAttempts);
+                    QueueChanged?.Invoke(this, EventArgs.Empty);
+                    break;   // se detiene para respetar el orden; reintenta en el siguiente ciclo
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // La aplicación se está cerrando.
+        }
+        finally
+        {
+            _gate.Release();
         }
         return sent;
     }
@@ -90,5 +117,6 @@ public class SyncService : IDisposable
     {
         _cts.Cancel();
         _cts.Dispose();
+        _gate.Dispose();
     }
 }

@@ -5,11 +5,13 @@ using RescatApp26.View.Interfaz;
 
 namespace RescatApp26.View.FormUI;
 
-public class QueueForm : Form, IQueueView
+public class QueueForm : Form, IQueueView, IRefreshable
 {
     private readonly QueuePresenter _presenter;
     private readonly DataGridView _grid;
     private readonly Label _lblSummary;
+
+    public void RefreshData() => _presenter.Load();
 
     public QueueForm(ISyncQueue queue)
     {
@@ -19,7 +21,8 @@ public class QueueForm : Form, IQueueView
         ClientSize = new Size(780, 580);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.White;
-        UiBuilder.AddTitle(this, "Cola de sincronización (FIFO)", 15, 10);
+
+        UiBuilder.AddTitle(this, "Cola de sincronización", 15, 10);
 
         _lblSummary = new Label { Left = 15, Top = 48, Width = 740, Height = 22, ForeColor = UiBuilder.Primary };
         Controls.Add(_lblSummary);

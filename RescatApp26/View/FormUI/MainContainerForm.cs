@@ -1,8 +1,10 @@
 ﻿using RescatApp26.Data;
 using RescatApp26.Models.DTOs;
 using RescatApp26.Models.Enums;
+using RescatApp26.Services;
 using RescatApp26.Services.Interfaz_service;
 using RescatApp26.Services.Repository;
+using RescatApp26.View.Interfaz;
 
 namespace RescatApp26.View.FormUI;
 
@@ -13,22 +15,23 @@ public class MainContainerForm : Form
     private readonly IAuthenticationService _authService;
     private readonly IConnectivityService _connectivity;
     private readonly ISyncQueue _queue;
+    private readonly SyncService _sync;
     private readonly Panel _pnlContent;
     private readonly Label _lblStatus;
     private readonly System.Windows.Forms.Timer _statusTimer;
     private Form? _currentForm;
-    private bool _checking;
 
     public bool LogoutRequested { get; private set; }
 
     public MainContainerForm(AuthenticatedUserDto user, RescatAppDbContext context, IAuthenticationService authService,
-        IConnectivityService connectivity, ISyncQueue queue)
+        IConnectivityService connectivity, ISyncQueue queue, SyncService sync)
     {
         _user = user ?? throw new ArgumentNullException(nameof(user));
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _connectivity = connectivity ?? throw new ArgumentNullException(nameof(connectivity));
         _queue = queue ?? throw new ArgumentNullException(nameof(queue));
+        _sync = sync ?? throw new ArgumentNullException(nameof(sync));
 
         Text = "RescatApp - Rescate y adopción de mascotas";
         ClientSize = new Size(1020, 640);
@@ -117,33 +120,18 @@ public class MainContainerForm : Form
         }
 
         // Estado de la conexión (abajo, encima de "Cerrar sesión")
-        var pnlStatus = new Panel { Dock = DockStyle.Bottom, Height = 85, BackColor = UiBuilder.Cream };
+        var pnlStatus = new Panel { Dock = DockStyle.Bottom, Height = 60, BackColor = UiBuilder.Cream };
         _lblStatus = new Label
         {
             Text = "● Comprobando...",
             Left = 10,
-            Top = 6,
+            Top = 8,
             Width = 200,
-            Height = 42,
+            Height = 44,
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
             ForeColor = Color.Gray
         };
-        var chkOffline = new CheckBox
-        {
-            Text = "Simular sin conexión",
-            Left = 10,
-            Top = 54,
-            Width = 200,
-            ForeColor = UiBuilder.Primary,
-            Cursor = Cursors.Hand
-        };
-        chkOffline.CheckedChanged += (s, e) =>
-        {
-            _connectivity.SimulateOffline = chkOffline.Checked;
-            UpdateStatusAsync();
-        };
         pnlStatus.Controls.Add(_lblStatus);
-        pnlStatus.Controls.Add(chkOffline);
         pnlMenu.Controls.Add(pnlStatus);
 
         var btnLogout = AddMenuButton(pnlMenu, "Cerrar sesión", 0, (s, e) =>
@@ -154,10 +142,14 @@ public class MainContainerForm : Form
         btnLogout.Dock = DockStyle.Bottom;
         btnLogout.Height = 50;
 
-        _statusTimer = new System.Windows.Forms.Timer { Interval = 4000 };
-        _statusTimer.Tick += (s, e) => UpdateStatusAsync();
+        // Todo es automático: los cambios de conexión y de la cola actualizan la pantalla solos.
+        _connectivity.StatusChanged += OnConnectivityChanged;
+        _sync.QueueChanged += OnQueueChanged;
+
+        _statusTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+        _statusTimer.Tick += (s, e) => UpdateStatus();
         _statusTimer.Start();
-        UpdateStatusAsync();
+        UpdateStatus();
 
         ShowWelcome();
     }
@@ -184,33 +176,51 @@ public class MainContainerForm : Form
         return button;
     }
 
-    // La comprobación de conexión se hace en segundo plano para que la ventana nunca se congele.
-    private async void UpdateStatusAsync()
+    private void UpdateStatus()
     {
-        if (_checking || IsDisposed) return;
-        _checking = true;
+        if (IsDisposed) return;
+
+        bool online = _connectivity.IsOnline;
+        int pending;
         try
         {
-            bool online = await Task.Run(() => _connectivity.IsOnline());
-            int pending = await Task.Run(() => _queue.PendingCount());
-            if (IsDisposed) return;
-
-            string state = online ? "● En línea" : _connectivity.SimulateOffline ? "● Sin conexión (simulada)" : "● Sin conexión";
-            _lblStatus.ForeColor = online ? Color.SeaGreen : UiBuilder.Danger;
-            _lblStatus.Text = $"{state}\nPendientes: {pending}";
+            pending = _queue.PendingCount();
         }
         catch
         {
-            // El indicador nunca debe tumbar la aplicación.
+            pending = 0;
         }
-        finally
+
+        _lblStatus.ForeColor = online ? Color.SeaGreen : UiBuilder.Danger;
+        _lblStatus.Text = (online ? "● En línea" : "● Sin conexión") + $"\nPendientes: {pending}";
+    }
+
+    // Estos eventos llegan desde hilos de segundo plano, así que se pasan al hilo de la pantalla.
+    private void OnConnectivityChanged(object? sender, bool online) => RunOnUi(UpdateStatus);
+
+    private void OnQueueChanged(object? sender, EventArgs e) => RunOnUi(() =>
+    {
+        UpdateStatus();
+        if (_currentForm is IRefreshable refreshable) refreshable.RefreshData();
+    });
+
+    private void RunOnUi(Action action)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        try
         {
-            _checking = false;
+            BeginInvoke(action);
+        }
+        catch (InvalidOperationException)
+        {
+            // La ventana se está cerrando.
         }
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
+        _connectivity.StatusChanged -= OnConnectivityChanged;
+        _sync.QueueChanged -= OnQueueChanged;
         _statusTimer.Stop();
         _statusTimer.Dispose();
         base.OnFormClosed(e);

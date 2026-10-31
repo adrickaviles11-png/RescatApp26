@@ -6,7 +6,7 @@ using RescatApp26.View.Interfaz;
 
 namespace RescatApp26.View.FormUI;
 
-public class PetsForm : Form, IPetView
+public class PetsForm : Form, IPetView, IRefreshable
 {
     private readonly PetPresenter _presenter;
     private readonly DataGridView _grid;
@@ -19,7 +19,7 @@ public class PetsForm : Form, IPetView
     private readonly ComboBox _cboStatus;
     private readonly TextBox _txtDescription;
     private int? _currentPetId;
-
+    public void RefreshData() => _presenter.LoadPets();
     public PetsForm(IPetRepository repository, bool canEdit = true, bool canDelete = true)
     {
         _presenter = new PetPresenter(this, repository);

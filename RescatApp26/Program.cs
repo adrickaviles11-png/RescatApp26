@@ -17,10 +17,13 @@ internal static class Program
         try
         {
             LocalDbContext.EnsureReady();   // crea rescatapp_local.db la primera vez
-            IConnectivityService connectivity = new ConnectivityService();
+
+            using var connectivity = new ConnectivityService();
+            connectivity.Start();           // empieza a vigilar la conexión con SQL Server
+
             ISyncQueue queue = new SqliteSyncQueue();
             using var sync = new SyncService(queue, connectivity);
-            sync.Start();
+            sync.Start();                   // envía la cola apenas vuelve la conexión
 
             while (true)
             {
@@ -37,7 +40,7 @@ internal static class Program
                 }
                 if (user is null) return;
 
-                var main = new MainContainerForm(user, context, authService, connectivity, queue);
+                var main = new MainContainerForm(user, context, authService, connectivity, queue, sync);
                 Application.Run(main);
 
                 if (!main.LogoutRequested) return;

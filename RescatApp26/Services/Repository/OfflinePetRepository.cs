@@ -1,23 +1,25 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using RescatApp26.Data;
 using RescatApp26.Models.DTOs;
 using RescatApp26.Models.Enums;
 using RescatApp26.Models.Local;
 using RescatApp26.Services.Interfaz_service;
-using System.Text.Json;
 
 namespace RescatApp26.Services.Repository;
 
 /// <summary>
-/// Envuelve al repositorio normal. Con conexión usa SQL Server; sin conexión lee la copia local
-/// y las mascotas nuevas se guardan en la cola FIFO de SQLite.
+/// Envuelve al repositorio normal. Con conexión usa SQL Server; si la conexión se pierde (aunque sea
+/// en medio de una operación) pasa solo a la copia local, y las mascotas nuevas van a la cola FIFO.
 /// </summary>
 public class OfflinePetRepository : IPetRepository
 {
     public const string EntityName = "Mascota";
     private const string CacheKey = "mascotas";
     private const string OfflineMessage =
-        "Sin conexión: editar y eliminar requieren conexión con el servidor. Mientras tanto solo puede registrar mascotas nuevas.";
+        "Sin conexión con el servidor: editar y eliminar requieren conexión. Mientras tanto solo puede registrar mascotas nuevas.";
+    private const string PendingMessage =
+        "Esa mascota todavía está pendiente de enviarse; podrá modificarla cuando se sincronice.";
 
     private readonly IPetRepository _inner;
     private readonly IConnectivityService _connectivity;
@@ -32,33 +34,69 @@ public class OfflinePetRepository : IPetRepository
 
     public IEnumerable<PetDto> GetAllPets()
     {
-        if (_connectivity.IsOnline())
+        if (_connectivity.IsOnline)
         {
-            var pets = _inner.GetAllPets().ToList();
-            try { SaveCache(pets); } catch { /* la copia local no debe impedir ver los datos */ }
-            return pets.Concat(GetPendingPets()).ToList();
+            try
+            {
+                var pets = _inner.GetAllPets().ToList();
+                TrySaveCache(pets);
+                return pets.Concat(GetPendingPets()).ToList();
+            }
+            catch (Exception) when (!_connectivity.CheckNow())
+            {
+                // La conexión se perdió justo ahora: se usa la copia local.
+            }
         }
-
         return LoadCache().Concat(GetPendingPets()).ToList();
     }
 
     public IEnumerable<PetDto> GetAvailablePets()
     {
-        if (_connectivity.IsOnline()) return _inner.GetAvailablePets();
+        if (_connectivity.IsOnline)
+        {
+            try
+            {
+                return _inner.GetAvailablePets().ToList();
+            }
+            catch (Exception) when (!_connectivity.CheckNow())
+            {
+            }
+        }
         return LoadCache().Where(p => p.Status == (int)PetStatus.Disponible).ToList();
     }
 
     public PetDto? GetPetById(int id)
     {
         if (id < 0) return GetPendingPets().FirstOrDefault(p => p.Id == id);
-        if (_connectivity.IsOnline()) return _inner.GetPetById(id);
+
+        if (_connectivity.IsOnline)
+        {
+            try
+            {
+                return _inner.GetPetById(id);
+            }
+            catch (Exception) when (!_connectivity.CheckNow())
+            {
+            }
+        }
         return LoadCache().FirstOrDefault(p => p.Id == id);
     }
 
     public int CreatePet(PetDto pet)
     {
         if (pet is null) throw new ArgumentNullException(nameof(pet));
-        if (_connectivity.IsOnline()) return _inner.CreatePet(pet);
+
+        if (_connectivity.IsOnline)
+        {
+            try
+            {
+                return _inner.CreatePet(pet);
+            }
+            catch (Exception) when (!_connectivity.CheckNow())
+            {
+                // La conexión se perdió justo ahora: la mascota se guarda en la cola local.
+            }
+        }
 
         ValidateForQueue(pet);
         try
@@ -75,18 +113,32 @@ public class OfflinePetRepository : IPetRepository
     public void UpdatePet(PetDto pet)
     {
         if (pet is null) throw new ArgumentNullException(nameof(pet));
-        if (pet.Id < 0)
-            throw new InvalidOperationException("Esa mascota todavía está pendiente de enviarse; podrá editarla cuando se sincronice.");
-        if (!_connectivity.IsOnline()) throw new InvalidOperationException(OfflineMessage);
-        _inner.UpdatePet(pet);
+        if (pet.Id < 0) throw new InvalidOperationException(PendingMessage);
+        if (!_connectivity.IsOnline) throw new InvalidOperationException(OfflineMessage);
+
+        try
+        {
+            _inner.UpdatePet(pet);
+        }
+        catch (Exception) when (!_connectivity.CheckNow())
+        {
+            throw new InvalidOperationException(OfflineMessage);
+        }
     }
 
     public void DeletePet(int id)
     {
-        if (id < 0)
-            throw new InvalidOperationException("Esa mascota todavía está pendiente de enviarse; podrá eliminarla cuando se sincronice.");
-        if (!_connectivity.IsOnline()) throw new InvalidOperationException(OfflineMessage);
-        _inner.DeletePet(id);
+        if (id < 0) throw new InvalidOperationException(PendingMessage);
+        if (!_connectivity.IsOnline) throw new InvalidOperationException(OfflineMessage);
+
+        try
+        {
+            _inner.DeletePet(id);
+        }
+        catch (Exception) when (!_connectivity.CheckNow())
+        {
+            throw new InvalidOperationException(OfflineMessage);
+        }
     }
 
     private List<PetDto> GetPendingPets()
@@ -117,18 +169,25 @@ public class OfflinePetRepository : IPetRepository
             throw new InvalidOperationException("La edad debe estar entre 0 y 360 meses.");
     }
 
-    private static void SaveCache(List<PetDto> pets)
+    private static void TrySaveCache(List<PetDto> pets)
     {
-        using var db = new LocalDbContext();
-        var entry = db.Cache.FirstOrDefault(c => c.Clave == CacheKey);
-        if (entry is null)
+        try
         {
-            entry = new CacheItem { Clave = CacheKey };
-            db.Cache.Add(entry);
+            using var db = new LocalDbContext();
+            var entry = db.Cache.FirstOrDefault(c => c.Clave == CacheKey);
+            if (entry is null)
+            {
+                entry = new CacheItem { Clave = CacheKey };
+                db.Cache.Add(entry);
+            }
+            entry.Json = JsonSerializer.Serialize(pets);
+            entry.Actualizado = DateTime.Now;
+            db.SaveChanges();
         }
-        entry.Json = JsonSerializer.Serialize(pets);
-        entry.Actualizado = DateTime.Now;
-        db.SaveChanges();
+        catch
+        {
+            // La copia local no debe impedir ver los datos.
+        }
     }
 
     private static List<PetDto> LoadCache()
