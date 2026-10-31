@@ -16,6 +16,12 @@ internal static class Program
 
         try
         {
+            LocalDbContext.EnsureReady();   // crea rescatapp_local.db la primera vez
+            IConnectivityService connectivity = new ConnectivityService();
+            ISyncQueue queue = new SqliteSyncQueue();
+            using var sync = new SyncService(queue, connectivity);
+            sync.Start();
+
             while (true)
             {
                 using var context = new RescatAppDbContext();
@@ -31,10 +37,9 @@ internal static class Program
                 }
                 if (user is null) return;
 
-                var main = new MainContainerForm(user, context, authService);
+                var main = new MainContainerForm(user, context, authService, connectivity, queue);
                 Application.Run(main);
 
-                // Si cerró sesión se vuelve al login; si cerró la ventana, termina la aplicación.
                 if (!main.LogoutRequested) return;
             }
         }

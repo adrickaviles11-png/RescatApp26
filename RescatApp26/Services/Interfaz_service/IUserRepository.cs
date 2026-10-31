@@ -7,4 +7,5 @@ public interface IUserRepository
     UserAuthenticationDataDto? GetUserAuthenticationData(string userName);
     bool ExistsUserName(string userName);
     int CreateUser(UserCreateDto user);
+    bool AnyUsers();
 }

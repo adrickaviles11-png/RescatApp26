@@ -20,7 +20,7 @@ public class PetsForm : Form, IPetView
     private readonly TextBox _txtDescription;
     private int? _currentPetId;
 
-    public PetsForm(IPetRepository repository)
+    public PetsForm(IPetRepository repository, bool canEdit = true, bool canDelete = true)
     {
         _presenter = new PetPresenter(this, repository);
 
@@ -86,6 +86,14 @@ public class PetsForm : Form, IPetView
         btnDelete.Click += (s, e) => _presenter.DeletePet();
 
         Load += (s, e) => _presenter.LoadPets();
+
+        btnDelete.Visible = canDelete;
+        if (!canEdit)
+        {
+            // Solo lectura: se oculta todo lo que está debajo de la tabla.
+            foreach (Control c in Controls.Cast<Control>().ToList())
+                if (c.Top > _grid.Bottom) c.Visible = false;
+        }
     }
 
     // Estado "Adoptada" solo aparece para mascotas ya adoptadas; no se puede asignar a mano.

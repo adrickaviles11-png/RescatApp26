@@ -18,7 +18,7 @@ public class AdoptersForm : Form, IAdopterView
     private readonly TextBox _txtAddress;
     private int? _currentAdopterId;
 
-    public AdoptersForm(IAdopterRepository repository)
+    public AdoptersForm(IAdopterRepository repository, bool canDelete = true)
     {
         _presenter = new AdopterPresenter(this, repository);
 
@@ -77,6 +77,7 @@ public class AdoptersForm : Form, IAdopterView
         btnDelete.Click += (s, e) => _presenter.DeleteAdopter();
 
         Load += (s, e) => _presenter.LoadAdopters();
+        btnDelete.Visible = canDelete;
     }
 
     public int? SelectedAdopterId => _currentAdopterId;

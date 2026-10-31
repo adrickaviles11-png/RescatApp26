@@ -13,16 +13,21 @@ public class RescatAppDbContext : DbContext
     public DbSet<Veterinaria> Veterinarias => Set<Veterinaria>();
     public DbSet<Cita> Citas => Set<Cita>();
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    public static string GetConnectionString()
     {
-        if (optionsBuilder.IsConfigured) return;
-
         var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: false)
             .Build();
 
-        optionsBuilder.UseSqlServer(configuration.GetConnectionString("RescatAppConnection"));
+        return configuration.GetConnectionString("RescatAppConnection")
+            ?? throw new InvalidOperationException("Falta la cadena de conexión RescatAppConnection.");
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        if (optionsBuilder.IsConfigured) return;
+        optionsBuilder.UseSqlServer(GetConnectionString());
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

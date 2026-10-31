@@ -73,8 +73,10 @@ public class PetPresenter
 
             if (_view.SelectedPetId is null)
             {
-                _repository.CreatePet(dto);
-                _view.ShowMessage("Mascota registrada correctamente.");
+                int newId = _repository.CreatePet(dto);
+                _view.ShowMessage(newId < 0
+                    ? "Sin conexión: la mascota se guardó en la cola local y se enviará al servidor cuando vuelva la conexión."
+                    : "Mascota registrada correctamente.");
             }
             else
             {

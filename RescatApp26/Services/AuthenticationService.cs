@@ -1,5 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using RescatApp26.Models.DTOs;
+using RescatApp26.Models.Enums;
 using RescatApp26.Services.Interfaz_service;
 
 namespace RescatApp26.Services;
@@ -33,11 +34,25 @@ public class AuthenticationService : IAuthenticationService
         return AuthenticationResultDto.Success(new AuthenticatedUserDto
         {
             UserId = data.UserId,
-            UserName = data.UserName
+            UserName = data.UserName,
+            Role = data.Role
         });
     }
 
-    public OperationResultDto Register(UserRegisterDto request)
+    public IReadOnlyList<OptionItem> GetAvailableRoles(bool requestedByAdmin)
+    {
+        // Si todavía no hay ningún usuario, el primero debe ser Administrador.
+        if (!_userRepository.AnyUsers())
+            return UserRoleOptions.All.Where(o => o.Value == (int)UserRole.Administrador).ToList();
+
+        // Desde el inicio de sesión solo se pueden crear cuentas de Adoptante.
+        if (!requestedByAdmin)
+            return UserRoleOptions.All.Where(o => o.Value == (int)UserRole.Adoptante).ToList();
+
+        return UserRoleOptions.All;
+    }
+
+    public OperationResultDto Register(UserRegisterDto request, bool requestedByAdmin)
     {
         if (request is null) throw new ArgumentNullException(nameof(request));
 
@@ -49,13 +64,16 @@ public class AuthenticationService : IAuthenticationService
             return OperationResultDto.Fail($"La contraseña debe tener al menos {MinPasswordLength} caracteres.");
         if (request.Password != request.ConfirmPassword)
             return OperationResultDto.Fail("Las contraseñas no coinciden.");
+        if (!GetAvailableRoles(requestedByAdmin).Any(o => o.Value == request.Role))
+            return OperationResultDto.Fail("El rol seleccionado no está permitido.");
         if (_userRepository.ExistsUserName(userName))
             return OperationResultDto.Fail("Ese nombre de usuario ya está en uso.");
 
         _userRepository.CreateUser(new UserCreateDto
         {
             UserName = userName,
-            PasswordHash = _passwordHasher.HashPassword(request.Password!)
+            PasswordHash = _passwordHasher.HashPassword(request.Password!),
+            Role = request.Role
         });
 
         return OperationResultDto.Ok("Usuario registrado correctamente.");

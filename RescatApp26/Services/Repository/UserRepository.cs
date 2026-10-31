@@ -26,7 +26,8 @@ public class UserRepository : IUserRepository
                 {
                     UserId = u.Id,
                     UserName = u.NombreUsuario,
-                    PasswordHash = u.ContrasenaHash
+                    PasswordHash = u.ContrasenaHash,
+                    Role = u.Rol
                 })
                 .FirstOrDefault();
         }
@@ -58,7 +59,8 @@ public class UserRepository : IUserRepository
             {
                 NombreUsuario = user.UserName,
                 ContrasenaHash = user.PasswordHash,
-                Activo = true
+                Activo = true,
+                Rol = user.Role
             };
             _context.Usuarios.Add(entity);
             _context.SaveChanges();
@@ -66,11 +68,24 @@ public class UserRepository : IUserRepository
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException("Error al registrar el usuario.", ex);
+            throw new InvalidOperationException("Error al registrar el usuario: " + (ex.InnerException?.Message ?? ex.Message), ex);
         }
         finally
         {
             _context.ChangeTracker.Clear();
+        }
+    }
+
+
+    public bool AnyUsers()
+    {
+        try
+        {
+            return _context.Usuarios.AsNoTracking().Any();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(ConnectionError, ex);
         }
     }
 }

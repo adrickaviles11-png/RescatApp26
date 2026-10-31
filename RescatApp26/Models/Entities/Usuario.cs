@@ -7,4 +7,5 @@ public class Usuario
     public string NombreUsuario { get; set; } = string.Empty;
     public string ContrasenaHash { get; set; } = string.Empty;
     public bool Activo { get; set; } = true;
+    public int Rol { get; set; } = 1;
 }

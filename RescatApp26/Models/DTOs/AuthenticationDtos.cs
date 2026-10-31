@@ -1,4 +1,8 @@
-﻿namespace RescatApp26.Models.DTOs;
+﻿using RescatApp26.Models.Enums;
+
+
+
+namespace RescatApp26.Models.DTOs;
 
 public class AuthenticationRequestDto
 {
@@ -10,6 +14,8 @@ public class AuthenticatedUserDto
 {
     public int UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
+    public int Role { get; set; }
+    public string RoleText => UserRoleOptions.Text(Role);
 }
 
 public class AuthenticationResultDto
@@ -30,4 +36,5 @@ public class UserAuthenticationDataDto
     public int UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
+    public int Role { get; set; }
 }

@@ -1,5 +1,6 @@
 ﻿using RescatApp26.Data;
 using RescatApp26.Models.DTOs;
+using RescatApp26.Models.Enums;
 using RescatApp26.Services.Interfaz_service;
 using RescatApp26.Services.Repository;
 
@@ -10,16 +11,24 @@ public class MainContainerForm : Form
     private readonly AuthenticatedUserDto _user;
     private readonly RescatAppDbContext _context;
     private readonly IAuthenticationService _authService;
+    private readonly IConnectivityService _connectivity;
+    private readonly ISyncQueue _queue;
     private readonly Panel _pnlContent;
+    private readonly Label _lblStatus;
+    private readonly System.Windows.Forms.Timer _statusTimer;
     private Form? _currentForm;
+    private bool _checking;
 
     public bool LogoutRequested { get; private set; }
 
-    public MainContainerForm(AuthenticatedUserDto user, RescatAppDbContext context, IAuthenticationService authService)
+    public MainContainerForm(AuthenticatedUserDto user, RescatAppDbContext context, IAuthenticationService authService,
+        IConnectivityService connectivity, ISyncQueue queue)
     {
         _user = user ?? throw new ArgumentNullException(nameof(user));
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        _connectivity = connectivity ?? throw new ArgumentNullException(nameof(connectivity));
+        _queue = queue ?? throw new ArgumentNullException(nameof(queue));
 
         Text = "RescatApp - Rescate y adopción de mascotas";
         ClientSize = new Size(1020, 640);
@@ -33,52 +42,109 @@ public class MainContainerForm : Form
         Controls.Add(_pnlContent);
         Controls.Add(pnlMenu);
 
-        UiBuilder.AddLogo(pnlMenu, 50, 15, 120);
-        var lblBrand = new Label
+        UiBuilder.AddLogo(pnlMenu, 60, 10, 100);
+        pnlMenu.Controls.Add(new Label
         {
             Text = "RescatApp",
             Left = 0,
-            Top = 140,
+            Top = 112,
             Width = 220,
-            Height = 34,
+            Height = 30,
             TextAlign = ContentAlignment.MiddleCenter,
             ForeColor = UiBuilder.Primary,
-            Font = new Font("Segoe UI", 16F, FontStyle.Bold)
-        };
-        var lblUser = new Label
+            Font = new Font("Segoe UI", 15F, FontStyle.Bold)
+        });
+        pnlMenu.Controls.Add(new Label
         {
-            Text = $"Sesión: {_user.UserName}",
+            Text = $"Sesión: {_user.UserName}\n({_user.RoleText})",
             Left = 10,
-            Top = 176,
+            Top = 144,
             Width = 200,
-            Height = 26,
+            Height = 40,
             TextAlign = ContentAlignment.MiddleCenter,
             ForeColor = UiBuilder.Primary
-        };
-        pnlMenu.Controls.Add(lblBrand);
-        pnlMenu.Controls.Add(lblUser);
-
-        int y = 225;
-        AddMenuButton(pnlMenu, "Resumen", y, (s, e) =>
-            OpenModule(() => new DashboardForm(new DashboardRepository(_context))));
-        y += 50;
-        AddMenuButton(pnlMenu, "Mascotas", y, (s, e) =>
-            OpenModule(() => new PetsForm(new PetRepository(_context))));
-        y += 50;
-        AddMenuButton(pnlMenu, "Adoptantes", y, (s, e) =>
-            OpenModule(() => new AdoptersForm(new AdopterRepository(_context))));
-        y += 50;
-        AddMenuButton(pnlMenu, "Adopciones", y, (s, e) =>
-           OpenModule(() => new AdoptionsForm(new AdoptionRepository(_context), new AdopterRepository(_context))));
-        y += 50;
-        AddMenuButton(pnlMenu, "Citas", y, (s, e) =>
-           OpenModule(() => new CitasForm(new CitaRepository(_context), new AdopterRepository(_context))));
-        y += 50;
-        AddMenuButton(pnlMenu, "Nuevo usuario", y, (s, e) =>
-        {
-            using var registerForm = new UserRegisterForm(_authService);
-            registerForm.ShowDialog(this);
         });
+
+        // Qué ve cada rol (los permisos están en AppPermissions)
+        int role = _user.Role;
+        bool staff = AppPermissions.CanUseStaffModules(role);
+        int y = 192;
+
+        if (staff)
+        {
+            AddMenuButton(pnlMenu, "Resumen", y, (s, e) =>
+                OpenModule(() => new DashboardForm(new DashboardRepository(_context))));
+            y += 44;
+        }
+
+        AddMenuButton(pnlMenu, "Mascotas", y, (s, e) =>
+            OpenModule(() => new PetsForm(
+                new OfflinePetRepository(new PetRepository(_context), _connectivity, _queue),
+                AppPermissions.CanEdit(role), AppPermissions.CanDelete(role))));
+        y += 44;
+
+        if (staff)
+        {
+            AddMenuButton(pnlMenu, "Adoptantes", y, (s, e) =>
+                OpenModule(() => new AdoptersForm(new AdopterRepository(_context), AppPermissions.CanDelete(role))));
+            y += 44;
+            AddMenuButton(pnlMenu, "Adopciones", y, (s, e) =>
+                OpenModule(() => new AdoptionsForm(new AdoptionRepository(_context), new AdopterRepository(_context))));
+            y += 44;
+            AddMenuButton(pnlMenu, "Citas", y, (s, e) =>
+                OpenModule(() => new CitasForm(new CitaRepository(_context), new AdopterRepository(_context))));
+            y += 44;
+            AddMenuButton(pnlMenu, "Cola de sincronización", y, (s, e) =>
+                OpenModule(() => new QueueForm(_queue)));
+            y += 44;
+        }
+
+        if (AppPermissions.CanManageUsers(role))
+        {
+            AddMenuButton(pnlMenu, "Nuevo usuario", y, (s, e) =>
+            {
+                try
+                {
+                    using var registerForm = new UserRegisterForm(_authService, requestedByAdmin: true);
+                    registerForm.ShowDialog(this);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.ToString(), "Error al abrir el registro");
+                }
+            });
+            y += 44;
+        }
+
+        // Estado de la conexión (abajo, encima de "Cerrar sesión")
+        var pnlStatus = new Panel { Dock = DockStyle.Bottom, Height = 85, BackColor = UiBuilder.Cream };
+        _lblStatus = new Label
+        {
+            Text = "● Comprobando...",
+            Left = 10,
+            Top = 6,
+            Width = 200,
+            Height = 42,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            ForeColor = Color.Gray
+        };
+        var chkOffline = new CheckBox
+        {
+            Text = "Simular sin conexión",
+            Left = 10,
+            Top = 54,
+            Width = 200,
+            ForeColor = UiBuilder.Primary,
+            Cursor = Cursors.Hand
+        };
+        chkOffline.CheckedChanged += (s, e) =>
+        {
+            _connectivity.SimulateOffline = chkOffline.Checked;
+            UpdateStatusAsync();
+        };
+        pnlStatus.Controls.Add(_lblStatus);
+        pnlStatus.Controls.Add(chkOffline);
+        pnlMenu.Controls.Add(pnlStatus);
 
         var btnLogout = AddMenuButton(pnlMenu, "Cerrar sesión", 0, (s, e) =>
         {
@@ -87,6 +153,11 @@ public class MainContainerForm : Form
         });
         btnLogout.Dock = DockStyle.Bottom;
         btnLogout.Height = 50;
+
+        _statusTimer = new System.Windows.Forms.Timer { Interval = 4000 };
+        _statusTimer.Tick += (s, e) => UpdateStatusAsync();
+        _statusTimer.Start();
+        UpdateStatusAsync();
 
         ShowWelcome();
     }
@@ -99,7 +170,7 @@ public class MainContainerForm : Form
             Left = 0,
             Top = y,
             Width = 220,
-            Height = 44,
+            Height = 40,
             FlatStyle = FlatStyle.Flat,
             ForeColor = UiBuilder.Primary,
             BackColor = UiBuilder.Cream,
@@ -111,6 +182,38 @@ public class MainContainerForm : Form
         button.Click += onClick;
         parent.Controls.Add(button);
         return button;
+    }
+
+    // La comprobación de conexión se hace en segundo plano para que la ventana nunca se congele.
+    private async void UpdateStatusAsync()
+    {
+        if (_checking || IsDisposed) return;
+        _checking = true;
+        try
+        {
+            bool online = await Task.Run(() => _connectivity.IsOnline());
+            int pending = await Task.Run(() => _queue.PendingCount());
+            if (IsDisposed) return;
+
+            string state = online ? "● En línea" : _connectivity.SimulateOffline ? "● Sin conexión (simulada)" : "● Sin conexión";
+            _lblStatus.ForeColor = online ? Color.SeaGreen : UiBuilder.Danger;
+            _lblStatus.Text = $"{state}\nPendientes: {pending}";
+        }
+        catch
+        {
+            // El indicador nunca debe tumbar la aplicación.
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        _statusTimer.Stop();
+        _statusTimer.Dispose();
+        base.OnFormClosed(e);
     }
 
     private void ShowWelcome()
