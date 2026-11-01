@@ -8,6 +8,8 @@ public class UserRegisterDto
     public string Password { get; set; } = string.Empty;
     public string ConfirmPassword { get; set; } = string.Empty;
     public int Role { get; set; } = (int)UserRole.Adoptante;
+    public string SecurityQuestion { get; set; } = string.Empty;
+    public string SecurityAnswer { get; set; } = string.Empty;
 }
 
 public class UserCreateDto
@@ -15,6 +17,8 @@ public class UserCreateDto
     public string UserName { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public int Role { get; set; }
+    public string SecurityQuestion { get; set; } = string.Empty;
+    public string AnswerHash { get; set; } = string.Empty;
 }
 
 public class OperationResultDto
@@ -26,4 +30,9 @@ public class OperationResultDto
     public static OperationResultDto Fail(string message) => new() { Success = false, Message = message };
 }
 
-
+public class UserRecoveryDataDto
+{
+    public int UserId { get; set; }
+    public string? Question { get; set; }
+    public string? AnswerHash { get; set; }
+}

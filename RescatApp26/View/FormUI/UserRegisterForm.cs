@@ -12,13 +12,15 @@ public class UserRegisterForm : Form, IUserRegisterView
     private readonly TextBox _txtPassword;
     private readonly TextBox _txtConfirm;
     private readonly ComboBox _cboRole;
+    private readonly ComboBox _cboQuestion;
+    private readonly TextBox _txtAnswer;
 
     public UserRegisterForm(IAuthenticationService service, bool requestedByAdmin)
     {
         _presenter = new UserRegisterPresenter(this, service, requestedByAdmin);
 
         Text = "Registro de usuario";
-        ClientSize = new Size(480, 340);
+        ClientSize = new Size(480, 460);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -49,6 +51,16 @@ public class UserRegisterForm : Form, IUserRegisterView
             ValueMember = "Value"
         };
         Controls.Add(_cboRole);
+        y += 45;
+
+        UiBuilder.AddLabel(this, "Pregunta de seguridad (para recuperar su contraseña)", 30, y);
+        y += 28;
+        _cboQuestion = new ComboBox { Left = 30, Top = y, Width = 410, DropDownStyle = ComboBoxStyle.DropDownList };
+        _cboQuestion.Items.AddRange(SecurityQuestions.All.Cast<object>().ToArray());
+        _cboQuestion.SelectedIndex = 0;
+        Controls.Add(_cboQuestion);
+        y += 42;
+        _txtAnswer = UiBuilder.AddTextBox(this, 30, y, 410, placeholder: "Respuesta de seguridad");
         y += 55;
 
         var btnRegister = UiBuilder.AddButton(this, "Registrar", 205, y, 115);
@@ -63,6 +75,8 @@ public class UserRegisterForm : Form, IUserRegisterView
     public string UserName => _txtUserName.Text.Trim();
     public string Password => _txtPassword.Text;
     public string ConfirmPassword => _txtConfirm.Text;
+    public string SecurityQuestion => _cboQuestion.SelectedItem?.ToString() ?? string.Empty;
+    public string SecurityAnswer => _txtAnswer.Text;
 
     // Si no hay nada seleccionado devuelve -1 (inválido), nunca 0, que es el rol de Administrador.
     public int RoleCode => _cboRole.SelectedValue is int v ? v : -1;
@@ -77,6 +91,7 @@ public class UserRegisterForm : Form, IUserRegisterView
         _txtUserName.Clear();
         _txtPassword.Clear();
         _txtConfirm.Clear();
+        _txtAnswer.Clear();
         _txtUserName.Focus();
     }
 

@@ -21,7 +21,7 @@ public class LoginForm : Form, IAuthenticationView
         _presenter = new AuthenticationPresenter(this, service);
 
         Text = "RescatApp - Iniciar sesión";
-        ClientSize = new Size(380, 470);
+        ClientSize = new Size(380, 500);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -68,11 +68,38 @@ public class LoginForm : Form, IAuthenticationView
         };
         AcceptButton = btnLogin;
 
+        var btnForgot = new Button
+        {
+            Text = "¿Olvidó su contraseña?",
+            Left = 40,
+            Top = 412,
+            Width = 300,
+            Height = 28,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = UiBuilder.Primary,
+            BackColor = UiBuilder.Cream,
+            Cursor = Cursors.Hand
+        };
+        btnForgot.FlatAppearance.BorderSize = 0;
+        btnForgot.Click += (s, e) =>
+        {
+            try
+            {
+                using var recoveryForm = new PasswordRecoveryForm(_service);
+                recoveryForm.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Error al abrir la recuperación");
+            }
+        };
+        Controls.Add(btnForgot);
+
         var btnRegister = new Button
         {
             Text = "¿No tiene cuenta? Crear cuenta nueva",
             Left = 40,
-            Top = 420,
+            Top = 445,
             Width = 300,
             Height = 30,
             FlatStyle = FlatStyle.Flat,

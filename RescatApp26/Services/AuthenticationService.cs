@@ -57,6 +57,7 @@ public class AuthenticationService : IAuthenticationService
         if (request is null) throw new ArgumentNullException(nameof(request));
 
         string userName = request.UserName?.Trim() ?? string.Empty;
+        string answer = NormalizeAnswer(request.SecurityAnswer);
 
         if (!UserNameRegex.IsMatch(userName))
             return OperationResultDto.Fail("El usuario debe tener entre 3 y 50 caracteres (letras, números, punto o guion bajo).");
@@ -66,6 +67,10 @@ public class AuthenticationService : IAuthenticationService
             return OperationResultDto.Fail("Las contraseñas no coinciden.");
         if (!GetAvailableRoles(requestedByAdmin).Any(o => o.Value == request.Role))
             return OperationResultDto.Fail("El rol seleccionado no está permitido.");
+        if (!SecurityQuestions.All.Contains(request.SecurityQuestion))
+            return OperationResultDto.Fail("Seleccione una pregunta de seguridad.");
+        if (answer.Length < 2)
+            return OperationResultDto.Fail("Escriba la respuesta de seguridad (mínimo 2 caracteres).");
         if (_userRepository.ExistsUserName(userName))
             return OperationResultDto.Fail("Ese nombre de usuario ya está en uso.");
 
@@ -73,9 +78,38 @@ public class AuthenticationService : IAuthenticationService
         {
             UserName = userName,
             PasswordHash = _passwordHasher.HashPassword(request.Password!),
-            Role = request.Role
+            Role = request.Role,
+            SecurityQuestion = request.SecurityQuestion,
+            AnswerHash = _passwordHasher.HashPassword(answer)
         });
 
         return OperationResultDto.Ok("Usuario registrado correctamente.");
     }
+
+    public string? GetSecurityQuestion(string userName)
+    {
+        var data = _userRepository.GetRecoveryData(userName?.Trim() ?? string.Empty);
+        return string.IsNullOrEmpty(data?.Question) || string.IsNullOrEmpty(data.AnswerHash) ? null : data.Question;
+    }
+
+    public OperationResultDto ResetPassword(string userName, string answer, string newPassword, string confirmPassword)
+    {
+        var data = _userRepository.GetRecoveryData(userName?.Trim() ?? string.Empty);
+        if (data is null || string.IsNullOrEmpty(data.AnswerHash))
+            return OperationResultDto.Fail("No fue posible restablecer la contraseña de esta cuenta.");
+
+        // Primero se comprueba la respuesta; solo si es correcta se acepta la contraseña nueva.
+        if (!_passwordHasher.VerifyPassword(NormalizeAnswer(answer), data.AnswerHash))
+            return OperationResultDto.Fail("La respuesta de seguridad no es correcta.");
+        if ((newPassword ?? string.Empty).Length < MinPasswordLength)
+            return OperationResultDto.Fail($"La contraseña debe tener al menos {MinPasswordLength} caracteres.");
+        if (newPassword != confirmPassword)
+            return OperationResultDto.Fail("Las contraseñas no coinciden.");
+
+        _userRepository.UpdatePasswordHash(data.UserId, _passwordHasher.HashPassword(newPassword));
+        return OperationResultDto.Ok("Contraseña restablecida. Ya puede iniciar sesión con la nueva.");
+    }
+
+    // Las respuestas no distinguen mayúsculas ni espacios al inicio y al final.
+    private static string NormalizeAnswer(string? answer) => (answer ?? string.Empty).Trim().ToLowerInvariant();
 }

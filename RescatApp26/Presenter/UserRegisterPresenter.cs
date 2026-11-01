@@ -38,7 +38,9 @@ public class UserRegisterPresenter
                 UserName = _view.UserName,
                 Password = _view.Password,
                 ConfirmPassword = _view.ConfirmPassword,
-                Role = _view.RoleCode
+                Role = _view.RoleCode,
+                SecurityQuestion = _view.SecurityQuestion,
+                SecurityAnswer = _view.SecurityAnswer
             }, _requestedByAdmin);
 
             if (!result.Success)

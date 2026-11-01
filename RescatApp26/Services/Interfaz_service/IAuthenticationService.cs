@@ -8,4 +8,6 @@ public interface IAuthenticationService
     AuthenticationResultDto Authenticate(AuthenticationRequestDto request);
     OperationResultDto Register(UserRegisterDto request, bool requestedByAdmin);
     IReadOnlyList<OptionItem> GetAvailableRoles(bool requestedByAdmin);
+    string? GetSecurityQuestion(string userName);
+    OperationResultDto ResetPassword(string userName, string answer, string newPassword, string confirmPassword);
 }

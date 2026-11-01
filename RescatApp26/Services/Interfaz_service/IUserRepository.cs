@@ -6,6 +6,8 @@ public interface IUserRepository
 {
     UserAuthenticationDataDto? GetUserAuthenticationData(string userName);
     bool ExistsUserName(string userName);
-    int CreateUser(UserCreateDto user);
     bool AnyUsers();
+    int CreateUser(UserCreateDto user);
+    UserRecoveryDataDto? GetRecoveryData(string userName);
+    void UpdatePasswordHash(int userId, string passwordHash);
 }

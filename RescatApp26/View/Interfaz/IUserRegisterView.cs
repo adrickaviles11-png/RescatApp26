@@ -13,4 +13,6 @@ public interface IUserRegisterView
     void ShowError(string message);
     void ClearForm();
     void CloseView();
+    string SecurityQuestion { get; }
+    string SecurityAnswer { get; }
 }
