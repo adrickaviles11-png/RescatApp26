@@ -85,7 +85,21 @@ public class PetsForm : Form, IPetView, IRefreshable
         var btnDelete = UiBuilder.AddButton(this, "Eliminar", 255, 515, danger: true);
         btnDelete.Click += (s, e) => _presenter.DeletePet();
 
+        // Filtros: texto y estado (se aplican al escribir o al cambiar la opción)
+        var txtFilter = UiBuilder.AddTextBox(this, 330, 14, 230, placeholder: "Buscar por nombre, especie o raza...");
+        var statusItems = new List<OptionItem> { new(-1, "Todos los estados") };
+        statusItems.AddRange(PetOptions.Statuses);
+        var cboFilterStatus = UiBuilder.AddOptionCombo(this, 570, 14, 150, statusItems);
+
+        void ApplyFilter() => _presenter.SetFilter(
+            txtFilter.Text,
+            cboFilterStatus.SelectedValue is int v && v >= 0 ? (int?)v : null);
+
+        txtFilter.TextChanged += (s, e) => ApplyFilter();
+        cboFilterStatus.SelectedIndexChanged += (s, e) => ApplyFilter();
+
         Load += (s, e) => _presenter.LoadPets();
+
 
         btnDelete.Visible = canDelete;
         if (!canEdit)

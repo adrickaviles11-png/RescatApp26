@@ -8,6 +8,9 @@ public class PetPresenter
 {
     private readonly IPetView _view;
     private readonly IPetRepository _repository;
+    private List<PetDto> _all = new();
+    private string _filterText = string.Empty;
+    private int? _filterStatus;
 
     public PetPresenter(IPetView view, IPetRepository repository)
     {
@@ -19,12 +22,35 @@ public class PetPresenter
     {
         try
         {
-            _view.ShowPets(_repository.GetAllPets());
+            _all = _repository.GetAllPets().ToList();
+            ApplyFilter();
         }
         catch (Exception ex)
         {
             ShowFailure(ex, "No fue posible cargar las mascotas.");
         }
+    }
+
+    public void SetFilter(string text, int? status)
+    {
+        _filterText = text ?? string.Empty;
+        _filterStatus = status;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        string text = _filterText.Trim();
+        var query = _all.AsEnumerable();
+
+        if (_filterStatus is int status)
+            query = query.Where(p => p.Status == status);
+
+        if (text.Length > 0)
+            query = query.Where(p => FilterHelper.Contains(p.Name, text) || FilterHelper.Contains(p.Species, text)
+                || FilterHelper.Contains(p.Breed, text) || FilterHelper.Contains(p.Description, text));
+
+        _view.ShowPets(query.ToList());
     }
 
     public void SelectPet(int petId)

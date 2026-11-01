@@ -10,6 +10,10 @@ public class CitaPresenter
     private readonly ICitaView _view;
     private readonly ICitaRepository _citaRepository;
     private readonly IAdopterRepository _adopterRepository;
+    private List<CitaDto> _allCitas = new();
+    private string _filterText = string.Empty;
+    private int? _filterType;
+    private int? _filterStatus;
 
     public CitaPresenter(ICitaView view, ICitaRepository citaRepository, IAdopterRepository adopterRepository)
     {
@@ -25,7 +29,8 @@ public class CitaPresenter
             _view.ShowPets(_citaRepository.GetPetsForCitas());
             _view.ShowVeterinarias(_citaRepository.GetVeterinarias());
             _view.ShowAdopters(_adopterRepository.GetAllAdopters());
-            _view.ShowCitas(_citaRepository.GetAllCitas());
+            _allCitas = _citaRepository.GetAllCitas().ToList();
+            ApplyFilter();
         }
         catch (Exception ex)
         {
@@ -35,7 +40,31 @@ public class CitaPresenter
 
     private void LoadCitas()
     {
-        _view.ShowCitas(_citaRepository.GetAllCitas());
+        _allCitas = _citaRepository.GetAllCitas().ToList();
+        ApplyFilter();
+    }
+
+    public void SetFilter(string text, int? type, int? status)
+    {
+        _filterText = text ?? string.Empty;
+        _filterType = type;
+        _filterStatus = status;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        string text = _filterText.Trim();
+        var query = _allCitas.AsEnumerable();
+
+        if (_filterType is int type) query = query.Where(c => c.Type == type);
+        if (_filterStatus is int status) query = query.Where(c => c.Status == status);
+
+        if (text.Length > 0)
+            query = query.Where(c => FilterHelper.Contains(c.PetName, text) || FilterHelper.Contains(c.DestinationName, text)
+                || FilterHelper.Contains(c.Reason, text) || FilterHelper.Contains(c.Notes, text));
+
+        _view.ShowCitas(query.ToList());
     }
 
     public void SelectCita(int citaId)

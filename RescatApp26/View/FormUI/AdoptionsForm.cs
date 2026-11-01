@@ -76,6 +76,40 @@ public class AdoptionsForm : Form, IAdoptionView
         UiBuilder.AddColumn(_grid, "Date", "Fecha", 135, "dd/MM/yyyy HH:mm");
         UiBuilder.AddColumn(_grid, "Notes", "Observaciones", 140);
 
+        // Filtros: texto y rango de fechas (marque la casilla de cada fecha para activarla)
+        var txtFilter = UiBuilder.AddTextBox(this, 315, 146, 190, placeholder: "Filtrar por mascota, adoptante o código...");
+        var dtpFrom = new DateTimePicker
+        {
+            Left = 515,
+            Top = 146,
+            Width = 120,
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = "'Desde' dd/MM/yy",
+            ShowCheckBox = true,
+            Checked = false
+        };
+        var dtpTo = new DateTimePicker
+        {
+            Left = 640,
+            Top = 146,
+            Width = 120,
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = "'Hasta' dd/MM/yy",
+            ShowCheckBox = true,
+            Checked = false
+        };
+        Controls.Add(dtpFrom);
+        Controls.Add(dtpTo);
+
+        void ApplyFilter() => _presenter.SetFilter(
+            txtFilter.Text,
+            dtpFrom.Checked ? dtpFrom.Value : null,
+            dtpTo.Checked ? dtpTo.Value : null);
+
+        txtFilter.TextChanged += (s, e) => ApplyFilter();
+        dtpFrom.ValueChanged += (s, e) => ApplyFilter();
+        dtpTo.ValueChanged += (s, e) => ApplyFilter();
+
         Load += (s, e) => _presenter.LoadData();
     }
 

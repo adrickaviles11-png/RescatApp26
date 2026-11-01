@@ -9,6 +9,8 @@ public class AdopterPresenter
 {
     private readonly IAdopterView _view;
     private readonly IAdopterRepository _repository;
+    private List<AdopterDto> _all = new();
+    private string _filterText = string.Empty;
 
     public AdopterPresenter(IAdopterView view, IAdopterRepository repository)
     {
@@ -20,12 +22,32 @@ public class AdopterPresenter
     {
         try
         {
-            _view.ShowAdopters(_repository.GetAllAdopters());
+            _all = _repository.GetAllAdopters().ToList();
+            ApplyFilter();
         }
         catch (Exception ex)
         {
             ShowFailure(ex, "No fue posible cargar los adoptantes.");
         }
+    }
+
+    public void SetFilter(string text)
+    {
+        _filterText = text ?? string.Empty;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        string text = _filterText.Trim();
+        var query = _all.AsEnumerable();
+
+        if (text.Length > 0)
+            query = query.Where(a => FilterHelper.Contains(a.FullName, text) || FilterHelper.Contains(a.DocumentId, text)
+                || FilterHelper.Contains(a.Email, text) || FilterHelper.Contains(a.Country, text)
+                || FilterHelper.Contains(a.Phone, text) || FilterHelper.Contains(a.Address, text));
+
+        _view.ShowAdopters(query.ToList());
     }
 
     public void SelectAdopter(int adopterId)

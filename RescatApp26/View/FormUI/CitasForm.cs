@@ -120,7 +120,25 @@ public class CitasForm : Form, ICitaView
         _cboType.SelectedIndexChanged += (s, e) => UpdateTypeVisibility();
         UpdateTypeVisibility();
 
+        var txtFilter = UiBuilder.AddTextBox(this, 130, 14, 230, placeholder: "Buscar mascota, destino o motivo...");
+        var typeItems = new List<OptionItem> { new(-1, "Todos los tipos") };
+        typeItems.AddRange(CitaOptions.Types);
+        var cboFilterType = UiBuilder.AddOptionCombo(this, 370, 14, 170, typeItems);
+        var statusItems = new List<OptionItem> { new(-1, "Todos los estados") };
+        statusItems.AddRange(CitaOptions.Statuses);
+        var cboFilterStatus = UiBuilder.AddOptionCombo(this, 550, 14, 150, statusItems);
+
+        void ApplyFilter() => _presenter.SetFilter(
+            txtFilter.Text,
+            cboFilterType.SelectedValue is int t && t >= 0 ? (int?)t : null,
+            cboFilterStatus.SelectedValue is int s && s >= 0 ? (int?)s : null);
+
+        txtFilter.TextChanged += (s, e) => ApplyFilter();
+        cboFilterType.SelectedIndexChanged += (s, e) => ApplyFilter();
+        cboFilterStatus.SelectedIndexChanged += (s, e) => ApplyFilter();
+
         Load += (s, e) => _presenter.LoadData();
+
     }
 
     private static DateTime NextHour()

@@ -9,6 +9,10 @@ public class AdoptionPresenter
     private readonly IAdoptionView _view;
     private readonly IAdoptionRepository _adoptionRepository;
     private readonly IAdopterRepository _adopterRepository;
+    private List<AdoptionListDto> _allAdoptions = new();
+    private string _filterText = string.Empty;
+    private DateTime? _filterFrom;
+    private DateTime? _filterTo;
 
     public AdoptionPresenter(IAdoptionView view, IAdoptionRepository adoptionRepository, IAdopterRepository adopterRepository)
     {
@@ -23,7 +27,8 @@ public class AdoptionPresenter
         {
             _view.ShowAdoptablePets(_adoptionRepository.GetAdoptablePets());
             _view.ShowAdopters(_adopterRepository.GetAllAdopters());
-            _view.ShowAdoptions(_adoptionRepository.GetAllAdoptions());
+            _allAdoptions = _adoptionRepository.GetAllAdoptions().ToList();
+            ApplyFilter();
         }
         catch (Exception ex)
         {
@@ -63,7 +68,28 @@ public class AdoptionPresenter
             ShowFailure(ex, "No fue posible registrar la adopción.");
         }
     }
+    public void SetFilter(string text, DateTime? from, DateTime? to)
+    {
+        _filterText = text ?? string.Empty;
+        _filterFrom = from;
+        _filterTo = to;
+        ApplyFilter();
+    }
 
+    private void ApplyFilter()
+    {
+        string text = _filterText.Trim();
+        var query = _allAdoptions.AsEnumerable();
+
+        if (_filterFrom is DateTime fromDate) query = query.Where(a => a.Date.Date >= fromDate.Date);
+        if (_filterTo is DateTime toDate) query = query.Where(a => a.Date.Date <= toDate.Date);
+
+        if (text.Length > 0)
+            query = query.Where(a => FilterHelper.Contains(a.PetName, text) || FilterHelper.Contains(a.AdopterName, text)
+                || FilterHelper.Contains(a.Code.ToString(), text) || FilterHelper.Contains(a.Notes, text));
+
+        _view.ShowAdoptions(query.ToList());
+    }
     private void ShowFailure(Exception ex, string fallback) =>
         _view.ShowError(ex is InvalidOperationException ? ex.Message : fallback);
 }

@@ -76,8 +76,12 @@ public class AdoptersForm : Form, IAdopterView
         var btnDelete = UiBuilder.AddButton(this, "Eliminar", 255, 465, danger: true);
         btnDelete.Click += (s, e) => _presenter.DeleteAdopter();
 
-        Load += (s, e) => _presenter.LoadAdopters();
+        var txtFilter = UiBuilder.AddTextBox(this, 330, 14, 300, placeholder: "Buscar por nombre, documento, correo o país...");
+        txtFilter.TextChanged += (s, e) => _presenter.SetFilter(txtFilter.Text);
         btnDelete.Visible = canDelete;
+
+        Load += (s, e) => _presenter.LoadAdopters();
+
     }
 
     public int? SelectedAdopterId => _currentAdopterId;
